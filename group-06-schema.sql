@@ -158,7 +158,7 @@ CREATE TABLE building_cells (
     location_cell_x int,
     location_cell_y int,
     building_id bigint
-        REFERENCES tiles(tile_id)
+        REFERENCES buildings(building_id)
         ON DELETE RESTRICT,
     PRIMARY KEY (location_tile_id, location_cell_x, location_cell_y, building_id)
 );
@@ -220,12 +220,77 @@ CREATE TABLE items (
 );
 
 
--- CREATE OR REPLACE VIEW cells AS
--- SELECT P.location_tile_id, P.location_cell_x, P.location_cell_y FROM pawns AS P
--- SELECT
--- -- SELECT buildings.location_tile_id, buildings.location_cell_x, buildings.location_cell_y FROM buildings
---
--- ;
+-- This view was written with the assistance of GitHub Copilot.
+CREATE OR REPLACE VIEW cells AS
+--- Grab all the occupied cells
+WITH occupied_locations AS (
+    SELECT location_tile_id AS tile_id,
+           location_cell_x AS cell_x,
+           location_cell_y AS cell_y
+    FROM pawns
+    WHERE location_tile_id IS NOT NULL
+      AND location_cell_x IS NOT NULL
+      AND location_cell_y IS NOT NULL
 
+    UNION
+
+    SELECT location_tile_id,
+           location_cell_x,
+           location_cell_y
+    FROM building_cells
+
+    UNION
+
+    SELECT location_tile_id,
+           location_cell_x,
+           location_cell_y
+    FROM items
+    WHERE location_tile_id IS NOT NULL
+      AND location_cell_x IS NOT NULL
+      AND location_cell_y IS NOT NULL
+)
+--- For each occupied cell, grab the pawns, buildings, and items which occupy it
+--- and put each of them in arrays. (see below for example)
+SELECT
+    occupied.tile_id,
+    occupied.cell_x,
+    occupied.cell_y,
+    COALESCE(array_agg(DISTINCT pawn.pawn_id)
+             FILTER (WHERE pawn.pawn_id IS NOT NULL), ARRAY[]::bigint[]) AS pawn_ids,
+    COALESCE(array_agg(DISTINCT building.building_id)
+             FILTER (WHERE building.building_id IS NOT NULL), ARRAY[]::bigint[]) AS building_ids,
+    COALESCE(array_agg(DISTINCT item.item_id)
+             FILTER (WHERE item.item_id IS NOT NULL), ARRAY[]::bigint[]) AS item_ids,
+    COUNT(DISTINCT pawn.pawn_id) AS pawn_count,
+    COUNT(DISTINCT building.building_id) AS building_count,
+    COUNT(DISTINCT item.item_id) AS item_count
+FROM occupied_locations AS occupied
+--- Using left join, as null values (aka. rows without a match) are expected to exist.
+LEFT JOIN pawns AS pawn
+    ON pawn.location_tile_id = occupied.tile_id
+   AND pawn.location_cell_x = occupied.cell_x
+   AND pawn.location_cell_y = occupied.cell_y
+LEFT JOIN building_cells AS building
+    ON building.location_tile_id = occupied.tile_id
+   AND building.location_cell_x = occupied.cell_x
+   AND building.location_cell_y = occupied.cell_y
+LEFT JOIN items AS item
+    ON item.location_tile_id = occupied.tile_id
+   AND item.location_cell_x = occupied.cell_x
+   AND item.location_cell_y = occupied.cell_y
+GROUP BY occupied.tile_id, occupied.cell_x, occupied.cell_y;
+
+-- View example:
+-- Assuming the following IDs and locations exist:
+--
+-- | tile_id | cell_x | cell_y | pawn_ids  | building_ids | item_ids        | pawn_count | building_count | item_count |
+-- | ------- | ------:| ------:| --------- | ------------ | --------------- | ----------:| --------------:| ----------:|
+-- | 1       | 2      | 3      | `{}`      | `{}`         | `{101,102}`     | 0          | 0              | 2          |
+-- | 1       | 4      | 1      | `{12}`    | `{}`         | `{}`            | 1          | 0              | 0          |
+-- | 2       | 0      | 2      | `{}`      | `{20}`       | `{103}`         | 0          | 1              | 1          |
+-- | 2       | 1      | 2      | `{12,15}` | `{20}`       | `{}`            | 2          | 1              | 0          |
+-- | 3       | -2     | 4      | `{}`      | `{21,22}`    | `{104,105,106}` | 0          | 2              | 3          |
+--
+-- The arrays are PostgreSQL arrays. Empty cells, held items, and items contained inside buildings do not appear in this view.
 
 COMMIT;
