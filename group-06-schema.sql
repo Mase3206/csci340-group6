@@ -92,11 +92,11 @@ CREATE TABLE pawns (
     pawn_type bigint NOT NULL
         REFERENCES pawn_types(type_id)
         ON DELETE RESTRICT,
-    location_tile_id bigint
+    location_tile_id bigint NOT NULL
         REFERENCES tiles(tile_id)
         ON DELETE RESTRICT,
-    location_cell_x int,
-    location_cell_y int,
+    location_cell_x int NOT NULL,
+    location_cell_y int NOT NULL,
 
     -- attributes
     hunger int NOT NULL
@@ -226,24 +226,27 @@ CREATE OR REPLACE VIEW cells AS
 WITH occupied_locations AS (
     SELECT location_tile_id AS tile_id,
            location_cell_x AS cell_x,
-           location_cell_y AS cell_y
+           location_cell_y AS cell_y,
+           'pawn'::varchar(10) AS occupant_type,
+           pawn_id AS occupant_id
     FROM pawns
-    WHERE location_tile_id IS NOT NULL
-      AND location_cell_x IS NOT NULL
-      AND location_cell_y IS NOT NULL
 
-    UNION
+    UNION ALL
 
     SELECT location_tile_id,
            location_cell_x,
-           location_cell_y
+           location_cell_y,
+           'building',
+           building_id
     FROM building_cells
 
-    UNION
+    UNION ALL
 
     SELECT location_tile_id,
            location_cell_x,
-           location_cell_y
+           location_cell_y,
+           'item',
+           item_id
     FROM items
     WHERE location_tile_id IS NOT NULL
       AND location_cell_x IS NOT NULL
@@ -255,29 +258,19 @@ SELECT
     occupied.tile_id,
     occupied.cell_x,
     occupied.cell_y,
-    COALESCE(array_agg(DISTINCT pawn.pawn_id)
-             FILTER (WHERE pawn.pawn_id IS NOT NULL), ARRAY[]::bigint[]) AS pawn_ids,
-    COALESCE(array_agg(DISTINCT building.building_id)
-             FILTER (WHERE building.building_id IS NOT NULL), ARRAY[]::bigint[]) AS building_ids,
-    COALESCE(array_agg(DISTINCT item.item_id)
-             FILTER (WHERE item.item_id IS NOT NULL), ARRAY[]::bigint[]) AS item_ids,
-    COUNT(DISTINCT pawn.pawn_id) AS pawn_count,
-    COUNT(DISTINCT building.building_id) AS building_count,
-    COUNT(DISTINCT item.item_id) AS item_count
+    COALESCE(array_agg(DISTINCT occupant_id)
+            FILTER (WHERE occupant_type = 'pawn'), -- Do you need `and occupant_id IS NOT NULL)`,
+            ARRAY[]::bigint[]) AS pawn_ids,
+    COALESCE(array_agg(DISTINCT occupant_id)
+            FILTER (WHERE occupant_type = 'building'),
+            ARRAY[]::bigint[]) AS building_ids,
+    COALESCE(array_agg(DISTINCT occupant_id)
+            FILTER (WHERE occupant_type = 'item'),
+            ARRAY[]::bigint[]) AS item_ids,
+    COUNT(DISTINCT occupant_id) FILTER (WHERE occupant_type = 'pawn') AS pawn_count,
+    COUNT(DISTINCT occupant_id) FILTER (WHERE occupant_type = 'building') AS building_count,
+    COUNT(DISTINCT occupant_id) FILTER (WHERE occupant_type = 'item') AS item_count
 FROM occupied_locations AS occupied
---- Using left join, as null values (aka. rows without a match) are expected to exist.
-LEFT JOIN pawns AS pawn
-    ON pawn.location_tile_id = occupied.tile_id
-   AND pawn.location_cell_x = occupied.cell_x
-   AND pawn.location_cell_y = occupied.cell_y
-LEFT JOIN building_cells AS building
-    ON building.location_tile_id = occupied.tile_id
-   AND building.location_cell_x = occupied.cell_x
-   AND building.location_cell_y = occupied.cell_y
-LEFT JOIN items AS item
-    ON item.location_tile_id = occupied.tile_id
-   AND item.location_cell_x = occupied.cell_x
-   AND item.location_cell_y = occupied.cell_y
 GROUP BY occupied.tile_id, occupied.cell_x, occupied.cell_y;
 
 -- View example:
@@ -292,5 +285,14 @@ GROUP BY occupied.tile_id, occupied.cell_x, occupied.cell_y;
 -- | 3       | -2     | 4      | `{}`      | `{21,22}`    | `{104,105,106}` | 0          | 2              | 3          |
 --
 -- The arrays are PostgreSQL arrays. Empty cells, held items, and items contained inside buildings do not appear in this view.
+
+CREATE INDEX pawns_location_idx
+    ON pawns (location_tile_id, location_cell_x, location_cell_y);
+
+CREATE INDEX building_cells_location_idx
+    ON building_cells (location_tile_id, location_cell_x, location_cell_y);
+
+CREATE INDEX items_location_idx
+    ON items (location_tile_id, location_cell_x, location_cell_y);
 
 COMMIT;
