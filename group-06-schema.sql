@@ -296,3 +296,19 @@ CREATE INDEX IF NOT EXISTS items_location_idx
     ON items (location_tile_id, location_cell_x, location_cell_y);
 
 COMMIT;
+
+
+
+-- Fix table faction_allowed_pawn_type - add relationships
+BEGIN;
+-- Many-to-Many - a Faction's allowed PawnTypes
+-- ALTER TABLE faction_allowed_pawn_types (
+--     faction_id bigint NOT NULL,
+--     pawn_type_id bigint NOT NULL,
+--     PRIMARY KEY (faction_id, pawn_type_id)
+-- );
+ALTER TABLE faction_allowed_pawn_types
+    ADD CONSTRAINT faction_id FOREIGN KEY (faction_id) REFERENCES factions,
+    ADD CONSTRAINT pawn_type_id FOREIGN KEY (pawn_type_id) REFERENCES pawn_types (type_id);
+
+COMMIT;
