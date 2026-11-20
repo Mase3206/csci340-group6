@@ -3,7 +3,7 @@ BEGIN;
 -- Cells will be a view (defined later)
 
 
-CREATE TABLE pawn_types (
+CREATE TABLE IF NOT EXISTS pawn_types (
     type_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     class_name varchar(20) NOT NULL,
     subclass_name varchar(20) NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE pawn_types (
 );
 
 
-CREATE TABLE factions (
+CREATE TABLE IF NOT EXISTS factions (
     faction_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     faction_name varchar(50) NOT NULL,
     icon text, -- base64
@@ -24,7 +24,7 @@ CREATE TABLE factions (
 
 -- Many-to-Many - Faction alliances
 -- 'left' and 'right' are used, because alliances are reciprocal
-CREATE TABLE faction_alliances (
+CREATE TABLE IF NOT EXISTS faction_alliances (
     left_ally bigint
         REFERENCES factions(faction_id)
         ON DELETE CASCADE,
@@ -36,7 +36,7 @@ CREATE TABLE faction_alliances (
 
 -- Many-to-Many - Faction enemies
 -- 'left' and 'right' are used, because conflicts are reciprocal
-CREATE TABLE faction_enemies (
+CREATE TABLE IF NOT EXISTS faction_enemies (
     left_enemy bigint
         REFERENCES factions(faction_id)
         ON DELETE CASCADE,
@@ -47,20 +47,20 @@ CREATE TABLE faction_enemies (
 );
 
 -- Many-to-Many - a Faction's allowed PawnTypes
-CREATE TABLE faction_allowed_pawn_types (
+CREATE TABLE IF NOT EXISTS faction_allowed_pawn_types (
     faction_id bigint NOT NULL,
     pawn_type_id bigint NOT NULL,
     PRIMARY KEY (faction_id, pawn_type_id)
 );
 
 
-CREATE TABLE save_games (
+CREATE TABLE IF NOT EXISTS save_games (
     save_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     save_progress numeric(5, 2)
 );
 
 
-CREATE TABLE tiles (
+CREATE TABLE IF NOT EXISTS tiles (
     tile_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     save_id bigint NOT NULL
@@ -82,7 +82,7 @@ CREATE TABLE tiles (
 );
 
 
-CREATE TABLE pawns (
+CREATE TABLE IF NOT EXISTS pawns (
     pawn_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     -- relationships
@@ -119,7 +119,7 @@ CREATE TABLE pawns (
 );
 
 
-CREATE TABLE buildings (
+CREATE TABLE IF NOT EXISTS buildings (
     building_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     name varchar(40) NOT NULL,
@@ -151,7 +151,7 @@ CREATE TABLE buildings (
 -- Many-to-Many
 --     the Cell(s) which a Building occupies
 --     but also the Building(s) which occupy a Cell
-CREATE TABLE building_cells (
+CREATE TABLE IF NOT EXISTS building_cells (
     location_tile_id bigint
         REFERENCES tiles(tile_id)
         ON DELETE RESTRICT,
@@ -164,7 +164,7 @@ CREATE TABLE building_cells (
 );
 
 
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
     item_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     name varchar(30) NOT NULL,
@@ -286,13 +286,13 @@ GROUP BY occupied.tile_id, occupied.cell_x, occupied.cell_y;
 --
 -- The arrays are PostgreSQL arrays. Empty cells, held items, and items contained inside buildings do not appear in this view.
 
-CREATE INDEX pawns_location_idx
+CREATE INDEX IF NOT EXISTS pawns_location_idx
     ON pawns (location_tile_id, location_cell_x, location_cell_y);
 
-CREATE INDEX building_cells_location_idx
+CREATE INDEX IF NOT EXISTS building_cells_location_idx
     ON building_cells (location_tile_id, location_cell_x, location_cell_y);
 
-CREATE INDEX items_location_idx
+CREATE INDEX IF NOT EXISTS items_location_idx
     ON items (location_tile_id, location_cell_x, location_cell_y);
 
 COMMIT;
