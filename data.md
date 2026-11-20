@@ -4,7 +4,7 @@ animal
 mechanoid (exclusive to mechanoid faction)
 insectoid (exclusive to insectoid faction)
 
-factions:
+<!-- factions:
 player
 hidden
 tribal_01
@@ -13,10 +13,10 @@ industrial_01
 industrial_02
 spacer_01
 spacer_02
-pirate_01
-pirate_02
-mechanoid (only mechanoids)
-hive (only insectoids)
+The yarrs
+wannabe pirates
+mechanoid
+insect_hive -->
 
 pirates will be hostile always, one of each {t, i, s} will be hostile and one will be either nuetral or friendly. hidden is neutral/ally with all
 
