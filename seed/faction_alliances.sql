@@ -22,11 +22,13 @@ CREATE TABLE IF NOT EXISTS faction_enemies (
     PRIMARY KEY (left_enemy, right_enemy)
 );
 */
-INSERT INTO factions (faction_name, icon, is_hidden)
+INSERT INTO faction_alliances (left_ally, right_ally)
 VALUES
     ()
 
-
+INSERT INTO faction_enemies (left_enemy, right_enemy)
+VALUES
+    ()
 
 
 RETURNING ;
